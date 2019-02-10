@@ -10,4 +10,4 @@ In case the branch is `staging` or `master` will be pushed to the Docker registr
 
 In any cases the build result should be notify to the Git Server and Slack or any other similar message platform.
 
-`mvn test` command was added to the Multistage Dockerfile to keep in that way. A different approach may be taken for a more complex testing. Integrate https://github.com/prometheus/client_java should be the next step to check what is going on in your environment. Also most of the code from Jenkinsfile should be moved to a shared-library.
+`mvn test` command was added to the Multistage Dockerfile to keep in that way. A different approach may be taken for a more complex testing. Integrate https://github.com/prometheus/client_java should be the next step to check what is going on in your environment. Also most of the code from Jenkinsfile should be moved to a shared-library. Sonarqube would be also added as part of this workflow for any branch.
