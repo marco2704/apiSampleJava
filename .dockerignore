@@ -1,0 +1,7 @@
+Dockerfile
+Jenkinsfile
+LICENSE
+docker-compose.yml
+
+*.env
+*.md
