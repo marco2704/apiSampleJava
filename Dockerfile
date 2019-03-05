@@ -1,13 +1,14 @@
-# build stage
-FROM maven:3.5-jdk-8-alpine as build-env
-WORKDIR /java
-COPY . /java/
-RUN mvn clean package
+FROM maven:3.5-jdk-8-alpine AS build
+WORKDIR /api-sample-java/
+COPY . .
+ARG REVISION
+RUN mvn --batch-mode -DskipTests -Drevision=${REVISION} clean package
 RUN mvn test
 
-# final stage
 FROM openjdk:8-jre-alpine
-COPY --from=build-env /java/target/*.jar /app.jar
-CMD java -jar app.jar
-
-
+ARG REVISION
+ENV APP_JAR=/usr/share/api-sample-java/app.jar
+COPY --from=build /api-sample-java/target/api-sample-java-${REVISION}.jar ${APP_JAR}
+EXPOSE 8080
+COPY docker-entrypoint.sh /usr/local/bin/
+ENTRYPOINT ["docker-entrypoint.sh"]

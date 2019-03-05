@@ -1,0 +1,13 @@
+version: "3"
+services:
+  api-sample-java:
+    build: 
+      context: .
+      dockerfile: Dockerfile-dev
+      args:
+        - REVISION: ${REVISION}
+    image: registry.adidas.com/api-sample-java:local
+    container_name: api_sample_java
+    env_file: config.env
+    ports:
+      - "${HOST_PORT}:8080"
