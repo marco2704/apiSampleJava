@@ -5,6 +5,7 @@
 String dockerRegistry = 'registry.adidas.com'
 String dockerRegistryCredentialsId = 'dockerRegistryCredentialsId'
 String dockerImageName = dockerRegistry
+String APP_VERSION = "1.0-SNAPSHOT"
 
 Map deployableBranches = [
     development: "development",
@@ -34,8 +35,11 @@ nodeWithTimeout('linux && docker') {
       }
     }
 
-    stage('Sonar') {
-      // TODO: Integrate with Sonnar
+    stage('Sonar Scanner') {
+         withSonarQubeEnv 'Sonarqube7 Staging', {
+            final String scannerHome = tool 'SonarQube 2.3'
+            sh "${scannerHome}/bin/sonar-runner -Dsonar.host.url=${env.SONAR_HOST_URL} -Dsonar.branch=${env.BRANCH_NAME}"
+        }
     }
 
     if (deployableBranches[env.BRANCH_NAME]) {
@@ -45,7 +49,7 @@ nodeWithTimeout('linux && docker') {
 
         withDockerRegistry([credentialsId: dockerRegistryCredentialsId, url:"https://${dockerRegistry}"]) { 
           stage('Build Docker Image') {
-            sh "docker build --no-cache --rm --pull -t ${dockerImageName} ."
+            sh "docker build --no-cache --rm --pull -t ${dockerImageName} --build-arg REVISION=${APP_VERSION}  ."
           }
 
           stage('Publish Docker Image') {
