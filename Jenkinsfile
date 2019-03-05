@@ -3,65 +3,73 @@
 // Most of this code should be moved to a shared-library 
 
 String dockerRegistry = 'registry.adidas.com'
-String dockerRegistryCredentials = 'dockerRegistryCredentialsId'
+String dockerRegistryCredentialsId = 'dockerRegistryCredentialsId'
 String dockerImageName = dockerRegistry
 
 Map deployableBranches = [
-    master: 'production',
+    development: "development",
     staging: 'staging',
+    master: 'production'
 ]
 
 nodeWithTimeout('linux && docker') {
   try {
     stage('Workspace Cleanup') {
-      cleanWs()
-      // This ensures a clean workspaces
+      cleanWs() // This ensures a clean workspaces
     }
 
     stage('Checkout') {
       def scmVars = checkout scm
-      env.GIT_COMMIT = scmVars.GIT_COMMIT 
-      // env.GIT_COMMIT is missing when the job is re-build or replayed.
+      env.GIT_COMMIT = scmVars.GIT_COMMIT // env.GIT_COMMIT is missing when the job is re-build or replayed.
     }
 
-    stage('Setup') {
-      String dockerImageTag = env.GIT_COMMIT[[0..6]]
-      dockerImageName = "${dockerRegistry}/api-sample-java:${dockerImageTag}-${env.BUILD_NUMBER}" 
+    // It will not depend on the slave setup, it will only require Docker
+    docker.image('maven:3.5-jdk-8-alpine').inside('-v $HOME/.m2:/root/.m2') {
+      stage('Build') {
+        sh 'mvn --batch-mode -DskipTests -Drevision=1.0-SNAPSHOT clean package' 
+      }
+
+      stage('Test') {
+        sh 'mvn test'
+      }
     }
 
-    try {
-      withDockerRegistry([credentialsId: dockerRegistryCredentials, url:"https://${dockerRegistry}"]) { 
-        stage('Build Docker Image') {
-          sh "docker build --no-cache --rm --pull -t ${dockerImageName} ."
-        }
+    stage('Sonar') {
+      // TODO: Integrate with Sonnar
+    }
 
-        if (deployableBranches[env.BRANCH_NAME]) {
+    if (deployableBranches[env.BRANCH_NAME]) {
+      try {
+        String dockerImageTag = env.GIT_COMMIT[[0..6]]
+        dockerImageName = "${dockerRegistry}/api-sample-java:${dockerImageTag}-${env.BUILD_NUMBER}"
+
+        withDockerRegistry([credentialsId: dockerRegistryCredentialsId, url:"https://${dockerRegistry}"]) { 
+          stage('Build Docker Image') {
+            sh "docker build --no-cache --rm --pull -t ${dockerImageName} ."
+          }
+
           stage('Publish Docker Image') {
             sh "docker push ${dockerImageName}"
           }
         }
+      } finally {
+        sh "docker rmi ${dockerImageName}"
       }
-    } finally {
-      sh "docker rmi ${dockerImageName}"
-    }
 
-    if (deployableBranches[env.BRANCH_NAME]) {
       stage('Deployment') {
         // TODO: K8 Deployment
       }
     }
 
-    if (deployableBranches[env.BRANCH_NAME] && deployableBranches[env.BRANCH_NAME] == 'production') {
+    if (deployableBranches[env.BRANCH_NAME] == 'production') {
       stage('Keep Build Forever') {
         currentBuild.keepLog = true
       }
     }
 
-    currentBuild.result = 'SUCCESS'
-    // currentBuild.result is null at this point
+    currentBuild.result = 'SUCCESS' // currentBuild.result is null at this point
   } catch(exception) {
-    currentBuild.result = 'FAILURE'
-    // currentBuild.result is still null at this point
+    currentBuild.result = 'FAILURE' // currentBuild.result is still null at this point
     throw exception
   } finally {
     stage ('Notify build result') {
